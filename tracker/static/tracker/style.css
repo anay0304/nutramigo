@@ -1,0 +1,261 @@
+/* ====== Design tokens ====== */
+:root{
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --text: #0f172a;           /* slate-900 */
+  --muted: #64748b;          /* slate-500 */
+  --muted-600: #475569;      /* slate-600 */
+  --border: rgba(2,6,23,.08);
+  --ring: rgba(59,130,246,.25);
+
+  --primary: #3b82f6;        /* blue-500 */
+  --success: #16a34a;        /* green-600 */
+  --warning: #f59e0b;        /* amber-500 */
+  --danger:  #ef4444;        /* red-500 */
+
+  --radius: 16px;
+  --radius-sm: 12px;
+  --shadow-1: 0 6px 18px rgba(2,6,23,.06);
+  --shadow-2: 0 10px 28px rgba(2,6,23,.08);
+
+  /* Chart helpers (read by JS) */
+  --grid: rgba(2,6,23,.08);
+  --grid-dark: rgba(148,163,184,.16);
+}
+
+html[data-theme="dark"]{
+  --bg: #0b1220;             /* deep slate */
+  --surface: #101826;
+  --text: #e5e7eb;           /* zinc-200 */
+  --muted: #94a3b8;          /* slate-300 */
+  --muted-600: #cbd5e1;
+  --border: rgba(148,163,184,.12);
+  --ring: rgba(59,130,246,.30);
+
+  --grid: var(--grid-dark);
+}
+
+body.bg-body{
+  background:
+    radial-gradient(1600px 800px at -20% -10%, rgba(59,130,246,.05), transparent 40%),
+    radial-gradient(1200px 700px at 120% -10%, rgba(16,185,129,.05), transparent 40%),
+    var(--bg);
+  color: var(--text);
+}
+
+/* ====== Navbar ====== */
+.navbar{
+  background: rgba(255,255,255,.7);
+  border-color: var(--border) !important;
+  backdrop-filter: saturate(180%) blur(10px);
+}
+html[data-theme="dark"] .navbar{
+  background: rgba(16,24,38,.7);
+}
+
+/* tiny icon button for theme toggle */
+.btn-ghost{
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover{
+  color: var(--text);
+  background: rgba(59,130,246,.08);
+  border-radius: 999px;
+}
+
+/* ====== Cards / surfaces ====== */
+.card{
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  background: var(--surface);
+}
+
+.card.shadow-sm{ box-shadow: var(--shadow-1); }
+.card.shadow{ box-shadow: var(--shadow-2); }
+
+/* “Coach tip” banner style (add class .banner to that card) */
+.card.banner{
+  color: #eaf2ff;
+  background: linear-gradient(135deg, #00283e, #003e4a 60%, #004357);
+  border: 0;
+}
+
+/* ====== Buttons ====== */
+.btn{
+  border-radius: 10px;
+}
+.btn-primary{
+  color:#fff;
+  background: linear-gradient(135deg, #2f6df1, #3b82f6);
+  border: 0;
+}
+.btn-primary:hover{
+  filter: brightness(.95);
+}
+.btn-outline-primary{
+  color: var(--primary);
+  border-color: rgba(59,130,246,.35);
+}
+.btn-outline-primary:hover{
+  background: rgba(59,130,246,.08);
+  border-color: rgba(59,130,246,.55);
+}
+
+/* ====== Inputs ====== */
+.form-control, .form-select{
+  border-radius: 10px;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.form-control:focus, .form-select:focus{
+  border-color: rgba(59,130,246,.4);
+  box-shadow: 0 0 0 .25rem var(--ring);
+}
+
+/* ====== KPI badges & progress ====== */
+.badge{
+  border-radius: 6px;
+  padding: .35rem .55rem;
+}
+.progress{
+  height: 8px;
+  background: rgba(148,163,184,.25);
+  border-radius: 999px;
+}
+.progress .progress-bar{
+  border-radius: 999px;
+}
+
+/* ====== Table polishing ====== */
+.table{
+  --tbl-border: var(--border);
+  color: var(--text);
+}
+.table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.table tbody tr{
+  transition: background .18s ease;
+}
+.table tbody tr:hover{
+  background: rgba(59,130,246,.05);
+}
+
+/* Card-like table on small screens (you already had table-card; this improves it) */
+@media (max-width: 768px){
+  .table-card thead{ display:none; }
+  .table-card, .table-card tbody, .table-card tr, .table-card td{ display:block; width:100%; }
+  .table-card tr{ border:1px solid var(--border); border-radius: var(--radius-sm); padding:.75rem 1rem; margin-bottom:.75rem; background: var(--surface); box-shadow: var(--shadow-1); }
+  .table-card td{ border:0; padding:.25rem 0; }
+  .table-card td[data-label]::before{
+    content: attr(data-label);
+    display:block;
+    font-size:.75rem;
+    color: var(--muted);
+  }
+}
+
+/* ====== Chart container ====== */
+.chart-card .card-body{
+  min-height: 280px;
+}
+
+/* ====== Utilities ====== */
+.text-muted{ color: var(--muted) !important; }
+.shadow-soft{ box-shadow: var(--shadow-1); }
+.ring{ box-shadow: 0 0 0 .25rem var(--ring); }
+
+/* Ensure navbar follows the theme */
+.navbar {
+  background-color: var(--bs-body-bg) !important;
+  color: var(--bs-body-color) !important;
+  border-color: var(--bs-border-color, #1f2937) !important;
+}
+
+html[data-bs-theme="dark"] .navbar .navbar-brand,
+html[data-bs-theme="dark"] .navbar .nav-link {
+  color: var(--bs-body-color) !important;
+}
+
+
+/* ---------- Auth / Intro page ---------- */
+.auth-hero {
+  min-height: calc(100vh - 72px); /* leave room for navbar */
+  display: flex;
+  align-items: center;
+}
+
+:root {
+  --glass-bg: rgba(255, 255, 255, .70);
+  --glass-border: rgba(0, 0, 0, .08);
+}
+
+[data-bs-theme="dark"] {
+  --glass-bg: rgba(17, 25, 40, .60);
+  --glass-border: rgba(255, 255, 255, .08);
+}
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+}
+
+.password-field {
+  position: relative;
+}
+.password-field .toggle-pass {
+  position: absolute;
+  right: .5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+/* Subtle radial + conic background blobs */
+.auth-bg-shapes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(600px 300px at 10% 10%, rgba(99, 102, 241, .10), transparent 60%),
+    radial-gradient(500px 250px at 90% 20%, rgba(16, 185, 129, .10), transparent 60%),
+    conic-gradient(from 200deg at 80% 80%, rgba(59, 130, 246, .08), rgba(236, 72, 153, .06), rgba(99, 102, 241, .05), transparent 70%);
+  mask-image: radial-gradient(1200px 500px at 50% 0%, #000 60%, transparent 100%);
+}
+
+/* Hero copy tweaks */
+.hero-copy .badge { font-weight: 600; }
+.hero-copy .lead { max-width: 48ch; }
+
+/* Chart container height */
+.chart-box {
+  height: 260px;           /* desktop/default */
+}
+
+/* Make it a bit shorter on small screens */
+@media (max-width: 576px) {
+  .chart-box { height: 220px; }
+}
+
+/* Let the canvas fill the box exactly */
+#macrosChart {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+
+.chart-box { height: 260px; }
+@media (max-width: 576px){ .chart-box { height: 220px; } }
+#macrosChart { width: 100% !important; height: 100% !important; }

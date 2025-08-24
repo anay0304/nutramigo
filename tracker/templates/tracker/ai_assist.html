@@ -1,0 +1,235 @@
+{% extends "tracker/base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Coach</h2>
+  <a href="{% url 'meal_list' %}?date={{ selected_date }}" class="btn btn-outline-secondary">Back to Dashboard</a>
+</div>
+
+<!-- Remaining targets -->
+<div class="card p-3 shadow-sm mb-3">
+  <div class="d-flex gap-4 flex-wrap">
+    <div>
+      <div class="text-muted small">Remaining Calories</div>
+      <div class="fs-4 fw-bold text-danger">{{ need.kcal }}</div>
+    </div>
+    <div>
+      <div class="text-muted small">Protein (g)</div>
+      <div class="fs-4 fw-bold text-primary">{{ need.p }}</div>
+    </div>
+    <div>
+      <div class="text-muted small">Carbs (g)</div>
+      <div class="fs-4 fw-bold text-success">{{ need.c }}</div>
+    </div>
+    <div>
+      <div class="text-muted small">Fat (g)</div>
+      <div class="fs-4 fw-bold text-warning">{{ need.f }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Suggestions grid -->
+<div id="plans" class="row g-3 mb-4">
+  {% for plan in plans %}
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">{{ plan.title }}</h5>
+        <ul class="list-unstyled mb-3">
+          {% for it in plan.items %}
+          <li>
+            {{ it.name }} — <strong>{{ it.grams|floatformat:0 }} g</strong>
+            <small class="text-muted">
+              • {{ it.kcal }} kcal • P {{ it.p }} • C {{ it.c }} • F {{ it.f }}
+            </small>
+          </li>
+          {% endfor %}
+        </ul>
+
+        <!-- JSON payload for this plan (safe container) -->
+        <template id="plan-data-{{ forloop.counter0 }}">
+          [
+            {% for it in plan.items %}
+            {"name":"{{ it.name|escapejs }}","grams":{{ it.grams|floatformat:0 }},
+             "kcal":{{ it.kcal }},"p":{{ it.p }},"c":{{ it.c }},"f":{{ it.f }}}
+            {% if not forloop.last %},{% endif %}
+            {% endfor %}
+          ]
+        </template>
+
+        <button
+          type="button"
+          class="btn btn-success btn-sm log-plan"
+          data-plan-id="plan-data-{{ forloop.counter0 }}">
+          Log this plan
+        </button>
+      </div>
+      <div class="card-footer bg-white">
+        <small class="text-muted">
+          Plan totals: {{ plan.totals.kcal }} kcal • P {{ plan.totals.p }} • C {{ plan.totals.c }} • F {{ plan.totals.f }}
+        </small>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Chat-style form -->
+<div class="card p-3 shadow-sm">
+  <div class="mb-2 text-muted">
+    Try: <code>high protein</code>, <code>vegetarian</code>, <code>no dairy</code>, <code>low carb</code>, <code>gluten-free</code>
+  </div>
+  <form id="chatForm" class="d-flex gap-2">
+    {% csrf_token %}
+    <input type="hidden" name="date" value="{{ selected_date }}">
+    <input class="form-control" name="message" placeholder="Tell the coach what you want...">
+    <button class="btn btn-primary">Suggest</button>
+  </form>
+</div>
+
+<script>
+const form = document.getElementById('chatForm');
+const plansDiv = document.getElementById('plans');
+const csrftoken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+
+/* --- helpers --- */
+function getTemplateJSON(id) {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`No <template id="${id}"> found`);
+  // Prefer .content.textContent for <template>; fall back to textContent/innerHTML
+  const raw = (el.content ? el.content.textContent : (el.textContent || el.innerHTML || '')).trim();
+  if (!raw) throw new Error(`Empty JSON payload inside <template id="${id}">`);
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Bad JSON in template:', raw);
+    throw new Error(`Invalid JSON in <template id="${id}">: ${e.message}`);
+  }
+}
+
+function planCard(p, idx){
+  const items = p.items.map(i =>
+    `<li>${i.name} — <strong>${Math.round(i.grams)} g</strong>
+      <small class="text-muted"> • ${i.kcal} kcal • P ${i.p} • C ${i.c} • F ${i.f}</small></li>`
+  ).join('');
+
+  const payload = JSON.stringify(
+    p.items.map(i => ({
+      name: i.name,
+      grams: Math.round(i.grams),
+      kcal: i.kcal, p: i.p, c: i.c, f: i.f
+    }))
+  );
+
+  return `
+  <div class="col-md-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">${p.title}</h5>
+        <ul class="list-unstyled mb-3">${items}</ul>
+
+        <template id="plan-data-${idx}">${payload}</template>
+
+        <button type="button" class="btn btn-success btn-sm log-plan" data-plan-id="plan-data-${idx}">
+          Log this plan
+        </button>
+      </div>
+      <div class="card-footer bg-white">
+        <small class="text-muted">Plan totals: ${p.totals.kcal} kcal • P ${p.totals.p} • C ${p.totals.c} • F ${p.totals.f}</small>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* --- wire logging buttons --- */
+function wireLogButtons(){
+  document.querySelectorAll('.log-plan').forEach(btn => {
+    btn.onclick = async () => {
+      try {
+        btn.disabled = true;
+
+        const planId = btn.getAttribute('data-plan-id');
+        console.log('[coach] click → planId:', planId);
+
+        const items = getTemplateJSON(planId);
+        console.log('[coach] items parsed:', items);
+
+        const fd = new FormData();
+        fd.append('date', "{{ selected_date }}");
+        fd.append('items', JSON.stringify(items));
+
+        const resp = await fetch("{% url 'ai_log_plan' %}", {
+          method: "POST",
+          body: fd,
+          headers: {
+            'X-CSRFToken': csrftoken,
+            'Accept': 'application/json'
+          },
+        });
+
+        let data;
+        try {
+          data = await resp.json();
+        } catch (e) {
+          const text = await resp.text();
+          console.error('Non-JSON response:', text);
+          alert("Server returned non-JSON response. See console for details.");
+          btn.disabled = false;
+          return;
+        }
+
+        console.log('[coach] log-plan response:', data);
+
+        if (data.ok && data.created > 0) {
+          // success
+          window.location.href = data.redirect;
+        } else {
+          const msg = (data.errors && data.errors.length)
+            ? "Couldn’t log:\n• " + data.errors.join("\n• ")
+            : "Couldn’t log that plan. Try another suggestion or tweak quantities.";
+          alert(msg);
+          btn.disabled = false;
+        }
+      } catch (err) {
+        console.error('[coach] click error:', err);
+        alert(err.message || 'Unexpected error. Open DevTools Console for details.');
+        btn.disabled = false;
+      }
+    };
+  });
+}
+
+/* --- suggest API (regenerates plans) --- */
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const fd = new FormData(form);
+    const resp = await fetch("{% url 'ai_suggest_api' %}", {
+      method: "POST",
+      body: fd,
+      headers: { 'Accept': 'application/json' }
+    });
+
+    let data;
+    try {
+      data = await resp.json();
+    } catch (e) {
+      const text = await resp.text();
+      console.error('Non-JSON suggest response:', text);
+      alert("Suggest API did not return JSON. See console for details.");
+      return;
+    }
+
+    plansDiv.innerHTML = data.plans.map((p, i) => planCard(p, i)).join('');
+    wireLogButtons();
+  } catch (err) {
+    console.error('[coach] suggest error:', err);
+    alert(err.message || 'Error fetching suggestions.');
+  }
+});
+
+/* --- initial --- */
+wireLogButtons();
+</script>
+
+{% endblock %}

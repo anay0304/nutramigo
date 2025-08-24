@@ -1,0 +1,10 @@
+{% extends "tracker/base.html" %}
+{% block content %}
+<h3 class="mb-3">Your Daily Goals</h3>
+<form method="post" class="card p-3 shadow-sm" style="max-width:480px">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-success">Save</button>
+  <a class="btn btn-link" href="{% url 'meal_list' %}">Cancel</a>
+</form>
+{% endblock %}

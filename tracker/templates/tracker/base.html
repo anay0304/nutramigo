@@ -1,0 +1,164 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Nutramigo{% endblock %}</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- App theme -->
+  <link rel="stylesheet" href="{% static 'tracker/style.css' %}">
+</head>
+<body class="bg-body">
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-md bg-body border-bottom shadow-sm sticky-top">
+
+    <div class="container-xl">
+     
+
+          <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="{% url 'meal_list' %}">
+
+        <i class="bi bi-activity text-primary"></i> Nutramigo - Macro & Calorie Coach
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+              aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="mainNav">
+  <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+
+    {% if user.is_authenticated %}
+      <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'meal_list' %}active{% endif %}"
+           href="{% url 'meal_list' %}">Dashboard</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'ai_assist' %}active{% endif %}"
+           href="{% url 'ai_assist' %}{% if selected_date %}?date={{ selected_date }}{% endif %}">Coach</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'edit_goal' %}active{% endif %}"
+           href="{% url 'edit_goal' %}">Set Goals</a>
+      </li>
+
+      <!-- Theme toggle (always visible) -->
+      <li class="nav-item">
+        <button id="themeToggle" class="btn btn-ghost" type="button" aria-label="Toggle theme">
+          <i id="themeIcon" class="bi bi-moon-stars"></i>
+        </button>
+      </li>
+
+      <li class="nav-item d-none d-md-flex align-items-center text-muted small me-2">
+        Hi, {{ user.username }}
+      </li>
+
+      <!-- Logout via POST -->
+      <li class="nav-item">
+        <form method="post" action="{% url 'logout' %}" class="d-inline">{% csrf_token %}
+          <button class="btn btn-outline-secondary btn-sm" type="submit">Logout</button>
+        </form>
+      </li>
+
+    {% else %}
+      <!-- Logged out: show only theme toggle + auth buttons -->
+      <li class="nav-item">
+        <button id="themeToggle" class="btn btn-ghost" type="button" aria-label="Toggle theme">
+          <i id="themeIcon" class="bi bi-moon-stars"></i>
+        </button>
+      </li>
+      <li class="nav-item">
+        <a class="btn btn-outline-secondary btn-sm me-2" href="{% url 'signup' %}">Sign up</a>
+      </li>
+      <li class="nav-item">
+        <a class="btn btn-primary btn-sm" href="{% url 'login' %}">Login</a>
+      </li>
+    {% endif %}
+
+  </ul>
+</div>
+</div>
+  </nav>
+
+  {% if messages %}
+    <div class="container-xl mt-3">
+      {% for m in messages %}
+        <div class="alert alert-{{ m.tags }} shadow-sm">{{ m }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <main class="container-xl py-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Bottom space on mobile so content never sits under iOS toolbars -->
+  <div class="mb-5 d-sm-none"></div>
+
+  <!-- JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Chart.js (load ONCE) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>
+    // Set chart defaults after Chart.js is loaded and DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.Chart) {
+        try {
+          Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+          Chart.defaults.color = '#334155'; // slate-700
+        } catch (e) {}
+      }
+    });
+  </script>
+
+  <!-- Page-specific scripts -->
+  {% block extra_js %}{% endblock %}
+
+
+<script>
+(function () {
+  const root = document.documentElement;
+  const btn  = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+
+  // Apply mode to both attributes so Bootstrap & your CSS respond
+  function apply(mode) {
+    root.setAttribute('data-theme', mode);
+    root.setAttribute('data-bs-theme', mode);
+    localStorage.setItem('theme', mode);
+
+    if (icon) {
+      icon.classList.toggle('bi-sun',        mode === 'dark');
+      icon.classList.toggle('bi-moon-stars', mode !== 'dark');
+    }
+
+    // If Chart.js is present, adjust colors and refresh charts
+    if (window.Chart) {
+      const bodyStyles = getComputedStyle(document.body);
+      Chart.defaults.color = bodyStyles.color || '#334155';
+      // Update all existing charts without animation
+      Object.values(Chart.instances || {}).forEach((c) => c.update('none'));
+    }
+  }
+
+  // Choose initial mode: saved → system preference → light
+  const saved = localStorage.getItem('theme');
+  const systemDark = window.matchMedia &&
+                     window.matchMedia('(prefers-color-scheme: dark)').matches;
+  apply(saved || (systemDark ? 'dark' : 'light'));
+
+  btn?.addEventListener('click', () => {
+    apply(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+})();
+</script>
+
+
+</body>
+</html>

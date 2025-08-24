@@ -1,0 +1,47 @@
+{% extends "tracker/base.html" %}
+{% block content %}
+<h3 class="mb-3">{{ edit|yesno:"Edit Meal,Add Meal" }}</h3>
+
+<form id="mealForm" method="post" class="card p-3 shadow-sm" style="max-width:640px">
+  {% csrf_token %}
+  <div class="row g-3">
+    <div class="col-md-8">
+      <label class="form-label">Name</label>
+      {{ form.name }}
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Date</label>
+      {{ form.date }}
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label">Grams</label>
+      {{ form.grams }}
+      <small class="text-muted">Change this to auto-recalc if this came from a food search.</small>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Calories</label>
+      {{ form.calories }}
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Protein (g)</label>
+      {{ form.protein }}
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Carbs (g)</label>
+      {{ form.carbs }}
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Fat (g)</label>
+      {{ form.fat }}
+    </div>
+  </div>
+
+  <div class="mt-3 d-flex gap-2">
+    <button class="btn btn-success">{{ edit|yesno:"Save Changes,Add Meal" }}</button>
+    <a href="{% url 'meal_list' %}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+</form>
+
+
+{% endblock %}

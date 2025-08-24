@@ -1,0 +1,499 @@
+{% extends "tracker/base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Nutrition Dashboard</h2>
+  <div class="d-flex gap-2">
+    
+    <a href="{% url 'copy_yesterday' %}?to={{ selected_date }}"
+       class="btn btn-outline-primary"
+       onclick="return confirm('Copy all meals from yesterday to this date?');">
+      Copy Yesterday
+    </a>
+    <a href="{% url 'export_csv' %}?date={{ selected_date }}"
+       class="btn btn-outline-secondary">
+      Export CSV
+    </a>
+    <a href="{% url 'add_meal' %}" class="btn btn-success">+ Add Meal</a>
+  </div>
+</div>
+
+{% if reco.recommended %}
+  <div class="alert alert-info d-flex justify-content-between align-items-center" >
+    <div >
+      <strong>Coach tip:</strong>
+      Aim for <strong>{{ reco.recommended }} kcal/day</strong>.
+      <small class="text-muted">({{ reco.why }})</small>
+    </div>
+    <form method="post" action="{% url 'apply_calorie_reco' %}">
+      {% csrf_token %}
+      <button class="btn btn-primary btn-sm">Use {{ reco.recommended }} kcal</button>
+    </form>
+  </div>
+{% else %}
+  <div class="alert alert-warning">
+    <strong>Coach tip:</strong> Add sex, age, height, weight and activity in
+    <a class="alert-link" href="{% url 'edit_goal' %}">Goals</a> to get a personalized calorie target.
+  </div>
+{% endif %}
+
+{% if macro_reco %}
+<div class="card p-3 shadow-sm mb-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+      <div class="text-muted small">
+        Suggested macros for <strong>{{ macro_reco.calories }}</strong> kcal
+        <span class="text-muted">({{ macro_reco.method }})</span>
+      </div>
+      <div class="fw-bold">
+        Protein <span class="text-primary">{{ macro_reco.protein }} g</span>
+        • Carbs <span class="text-success">{{ macro_reco.carbs }} g</span>
+        • Fat <span class="text-warning">{{ macro_reco.fat }} g</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <!-- Apply only the macro targets (keep current calories) -->
+      <form method="post" action="{% url 'apply_macro_reco' %}">
+        {% csrf_token %}
+        <input type="hidden" name="use_reco" value="0">
+        <button class="btn btn-outline-primary btn-sm">Apply macros</button>
+      </form>
+      <!-- Apply coach calories AND macros -->
+      <form method="post" action="{% url 'apply_macro_reco' %}">
+        {% csrf_token %}
+        <input type="hidden" name="use_reco" value="1">
+        <button class="btn btn-primary btn-sm">Use calories + macros</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+
+<div class="card p-3 shadow-sm mb-3">
+  <label class="form-label">Search food (OpenFoodFacts)</label>
+  <input id="foodSearch" type="text" class="form-control" placeholder="e.g., oatmeal, peanut butter">
+  <div id="foodResults" class="list-group mt-2"></div>
+  <small class="text-muted">Click a result to log it. Values are per 100g and will be scaled.</small>
+</div>
+
+<form style="display:none;">{% csrf_token %}</form>
+
+<form method="get" class="mb-4">
+  <div class="input-group" style="max-width: 250px;">
+    <input type="date" name="date" value="{{ selected_date }}" class="form-control">
+    <button class="btn btn-outline-secondary">Filter</button>
+  </div>
+</form>
+
+<div class="card p-3 shadow-sm mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0">Recent Foods</h5>
+    <small class="text-muted">Click Add to log for {{ selected_date }}</small>
+  </div>
+
+  {% if recents %}
+    <div class="vstack gap-2">
+      {% for r in recents %}
+        <form method="post" action="{% url 'quick_add_food' %}" class="d-flex gap-2 align-items-center">
+          {% csrf_token %}
+          <div class="flex-grow-1">
+            <strong>{{ r.name }}</strong>
+            <div class="text-muted small">
+              {{ r.cal_per_100g|floatformat:0 }} kcal/100g •
+              P {{ r.protein_per_100g|floatformat:1 }} •
+              C {{ r.carbs_per_100g|floatformat:1 }} •
+              F {{ r.fat_per_100g|floatformat:1 }}
+            </div>
+          </div>
+          <input type="hidden" name="name" value="{{ r.name }}">
+          <input type="hidden" name="date" value="{{ selected_date }}">
+          <input type="hidden" name="cal_per_100g" value="{{ r.cal_per_100g }}">
+          <input type="hidden" name="protein_per_100g" value="{{ r.protein_per_100g }}">
+          <input type="hidden" name="carbs_per_100g" value="{{ r.carbs_per_100g }}">
+          <input type="hidden" name="fat_per_100g" value="{{ r.fat_per_100g }}">
+          <input type="number" name="grams" class="form-control" style="width:110px"
+                 value="{{ r.default_grams|floatformat:0 }}" min="1" step="1">
+          <button class="btn btn-primary btn-sm">Add</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-muted mb-0">No recent foods yet.</p>
+  {% endif %}
+</div>
+
+<div class="card p-3 shadow-sm mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5 class="mb-0">Favorites</h5>
+    <small class="text-muted">Click Add to log for {{ selected_date }}</small>
+  </div>
+
+
+
+  {% if favorites %}
+    <div class="vstack gap-2">
+      {% for f in favorites %}
+        <form method="post" action="{% url 'quick_add_favorite' f.id %}" class="d-flex gap-2 align-items-center">
+          {% csrf_token %}
+          <div class="flex-grow-1">
+            <strong>{{ f.name }}</strong>
+            {% if f.brand %}<small class="text-muted ms-1">{{ f.brand }}</small>{% endif %}
+            <div class="text-muted small">
+              {{ f.cal_per_100g|default:"0"|floatformat:0 }} kcal /100g •
+              P {{ f.protein_per_100g|default:"0"|floatformat:1 }} •
+              C {{ f.carbs_per_100g|default:"0"|floatformat:1 }} •
+              F {{ f.fat_per_100g|default:"0"|floatformat:1 }}
+            </div>
+          </div>
+          <input type="number" name="grams" class="form-control" style="width:110px"
+                 value="{{ f.default_grams|default:100|floatformat:0 }}" min="1" step="1">
+          <input type="hidden" name="date" value="{{ selected_date }}">
+          <button class="btn btn-primary btn-sm">Add</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-muted mb-0">No favorites yet — click <strong>⭐ Favorite</strong> on a meal to save it here.</p>
+  {% endif %}
+</div>
+
+
+<script>
+(function(){
+  const search = document.getElementById('foodSearch');
+  const list   = document.getElementById('foodResults');
+  const form   = document.querySelector('form');
+
+  function fillForm(item, scale, grams){
+    form.elements['name'].value = `${item.name}${grams ? ' ('+grams+' g)' : ''}`;
+    form.elements['calories'].value = Math.round((item.calories || 0) * scale);
+    form.elements['protein'].value  = ((item.protein  || 0) * scale).toFixed(1);
+    form.elements['carbs'].value    = ((item.carbs    || 0) * scale).toFixed(1);
+    form.elements['fat'].value      = ((item.fat      || 0) * scale).toFixed(1);
+  }
+
+  function renderResults(data){
+    list.innerHTML = "";
+    (data.results || []).forEach(item => {
+      const a = document.createElement('a');
+      a.href = "#";
+      a.className = "list-group-item list-group-item-action";
+      a.innerHTML = `
+        <div class="d-flex justify-content-between">
+          <strong>${item.name}</strong>
+          <small class="text-muted">${item.brand || ""}</small>
+        </div>
+        <small class="text-muted">
+          ${item.calories ?? 0} kcal/100g • P ${item.protein ?? 0}g • C ${item.carbs ?? 0}g • F ${item.fat ?? 0}g
+          ${item.serving_size ? ' • serving: '+item.serving_size : ''}
+        </small>`;
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        let grams = parseFloat(prompt("Grams to log?", "100"));
+        if (!grams || grams <= 0) grams = 100;
+        const scale = grams / 100.0;
+        fillForm(item, scale, grams);
+        list.innerHTML = "";
+        search.value = "";
+      });
+      list.appendChild(a);
+    });
+  }
+
+  let timer;
+  search.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = search.value.trim();
+    if (q.length < 2) { list.innerHTML = ""; return; }
+    timer = setTimeout(async () => {
+      try {
+        const resp = await fetch(`/api/food-search/?q=${encodeURIComponent(q)}`);
+        const data = await resp.json();
+        renderResults(data);
+      } catch (e) {
+        console.error(e);
+      }
+    }, 300);
+  });
+})();
+</script>
+
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card p-3 kpi">
+      <div class="label">Calories</div>
+      <div class="value text-danger">{{ totals.calories|floatformat:0 }}</div>
+      <div class="sub">/ {{ goal.calories|floatformat:0 }}</div>
+      <div class="progress mt-2">
+        <div class="progress-bar bg-{{ badges.calories }}" role="progressbar"
+             style="width: {{ progress_capped.calories }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card p-3 kpi">
+      <div class="label">Protein</div>
+      <div class="value text-primary">{{ totals.protein|floatformat:1 }} g</div>
+      <div class="sub">/ {{ goal.protein|floatformat:1 }} g</div>
+      <div class="progress mt-2">
+        <div class="progress-bar bg-{{ badges.protein }}" style="width: {{ progress_capped.protein }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card p-3 kpi">
+      <div class="label">Carbs</div>
+      <div class="value text-success">{{ totals.carbs|floatformat:1 }} g</div>
+      <div class="sub">/ {{ goal.carbs|floatformat:1 }} g</div>
+      <div class="progress mt-2">
+        <div class="progress-bar bg-{{ badges.carbs }}" style="width: {{ progress_capped.carbs }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="card p-3 kpi">
+      <div class="label">Fat</div>
+      <div class="value text-warning">{{ totals.fat|floatformat:1 }} g</div>
+      <div class="sub">/ {{ goal.fat|floatformat:1 }} g</div>
+      <div class="progress mt-2">
+        <div class="progress-bar bg-{{ badges.fat }}" style="width: {{ progress_capped.fat }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<h3 class="mt-4">Macro Breakdown</h3>
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="chart-box">
+      <canvas id="macrosChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<h3 class="mt-4">Last 7 Days</h3>
+<div class="card shadow-sm mb-4">
+  <div class="card-body" style="height: 280px;">
+    <canvas id="weeklyChart"></canvas>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 1) WEEKLY BAR CHART
+  const wc = document.getElementById('weeklyChart');
+  if (wc && window.Chart) {
+    // Make sure we inject real arrays, not a quoted string
+    const labels = {{ weekly_labels|default:'[]'|safe }};
+    const series = {{ weekly_kcal|default:'[]'|safe }};
+
+    // Get Bootstrap primary color (fallback if not found)
+    const primaryRgb = (getComputedStyle(document.documentElement)
+      .getPropertyValue('--bs-primary-rgb') || '13,110,253').trim();
+
+    new Chart(wc, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Calories',
+          data: series,
+          backgroundColor: `rgba(${primaryRgb}, .35)`,
+          borderColor: `rgba(${primaryRgb}, .85)`,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false, // use wrapper/canvas height
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // 2) MACROS PIE CHART (optional; keep if you use the macrosChart)
+  const mc = document.getElementById('macrosChart');
+  if (mc && window.Chart) {
+    const protein = {{ totals.protein|default:"0" }};
+    const carbs   = {{ totals.carbs|default:"0" }};
+    const fat     = {{ totals.fat|default:"0" }};
+
+    new Chart(mc, {
+      type: 'pie',
+      data: {
+        labels: ['Protein', 'Carbs', 'Fat'],
+        datasets: [{
+          data: [protein, carbs, fat],
+          backgroundColor: ['#36a2eb', '#4caf50', '#ffcd56'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}
+
+<h4>Meals</h4>
+<table class="table table-hover align-middle table-card">
+  <thead>
+    <tr class="table-dark">
+      <th>Name</th><th>Calories</th><th>Protein</th><th>Carbs</th><th>Fat</th><th>Date</th><th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for meal in meals %}
+    <tr>
+      <td data-label="Name">{{ meal.name }}</td>
+      <td data-label="Calories">{{ meal.calories }}</td>
+      <td data-label="Protein">{{ meal.protein }} g</td>
+      <td data-label="Carbs">{{ meal.carbs }} g</td>
+      <td data-label="Fat">{{ meal.fat }} g</td>
+      <td data-label="Date">{{ meal.date }}</td>
+      <td data-label="Actions">
+        <a href="{% url 'edit_meal' meal.id %}" class="btn btn-outline-primary btn-sm">Edit</a>
+        <form method="post" action="{% url 'delete_meal' meal.id %}" class="d-inline">
+          {% csrf_token %}
+          <button class="btn btn-outline-danger btn-sm">Delete</button>
+        </form>
+        <a href="{% url 'add_favorite_from_meal' meal.id %}" class="btn btn-outline-warning btn-sm">★ Favorite</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="7" class="text-center text-muted py-4">No meals logged yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const ctx = document.getElementById('macrosChart');
+  new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: ['Protein', 'Carbs', 'Fat'],
+      datasets: [{
+        data: [
+          {{ totals.protein|default:"0" }},
+          {{ totals.carbs|default:"0" }},
+          {{ totals.fat|default:"0" }}
+        ],
+        backgroundColor: ['#36a2eb', '#4caf50', '#ffcd56']
+      }]
+
+      options: {
+    responsive: true,
+    maintainAspectRatio: false,   // <- use wrapper height
+    plugins: {
+      legend: { position: 'top' }
+    }
+  }
+    }
+  });
+</script>
+
+<script>
+(function(){
+  const search = document.getElementById('foodSearch');
+  const list   = document.getElementById('foodResults');
+  const selectedDate = "{{ selected_date }}";  // provided by the view
+
+  function getCSRF() {
+    const name = 'csrftoken=';
+    const c = document.cookie.split(';').find(x => x.trim().startsWith(name));
+    return c ? c.split('=')[1] : '';
+  }
+
+  async function quickAdd(item, grams) {
+  const scale = (grams || 100) / 100.0;
+  const payload = new URLSearchParams({
+    name: `${item.name} (${grams} g)`,
+    grams: grams,
+    // send per-100g so server can recalc on later edits
+    cal_per_100g: (item.calories ?? 0),
+    protein_per_100g: (item.protein ?? 0),
+    carbs_per_100g: (item.carbs ?? 0),
+    fat_per_100g: (item.fat ?? 0),
+    // send totals too (not strictly required)
+    calories: Math.round((item.calories || 0) * scale),
+    protein:  ((item.protein  || 0) * scale).toFixed(1),
+    carbs:    ((item.carbs    || 0) * scale).toFixed(1),
+    fat:      ((item.fat      || 0) * scale).toFixed(1),
+    date: selectedDate,
+    source_id: item.id || ""
+  });
+
+  const resp = await fetch("{% url 'quick_add_food' %}", {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCSRF(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: payload.toString()
+  });
+  return resp.json();
+}
+
+  function renderResults(data){
+    list.innerHTML = "";
+    (data.results || []).forEach(item => {
+      const a = document.createElement('a');
+      a.href = "#";
+      a.className = "list-group-item list-group-item-action";
+      a.innerHTML = `
+        <div class="d-flex justify-content-between">
+          <strong>${item.name}</strong>
+          <small class="text-muted">${item.brand || ""}</small>
+        </div>
+        <small class="text-muted">
+          ${item.calories ?? 0} kcal/100g • P ${item.protein ?? 0}g • C ${item.carbs ?? 0}g • F ${item.fat ?? 0}g
+          ${item.serving_size ? ' • serving: '+item.serving_size : ''}
+        </small>`;
+      a.addEventListener('click', async (e) => {
+        e.preventDefault();
+        let grams = parseFloat(prompt("Grams to log?", "100"));
+        if (!grams || grams <= 0) grams = 100;
+        try {
+          const r = await quickAdd(item, grams);
+          if (r.ok) location.reload(); else alert(r.error || "Failed to add");
+        } catch (err) {
+          alert("Network error");
+          console.error(err);
+        }
+        list.innerHTML = "";
+        search.value = "";
+      });
+      list.appendChild(a);
+    });
+  }
+
+  let timer;
+  if (search) {
+    search.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = search.value.trim();
+      if (q.length < 2) { list.innerHTML = ""; return; }
+      timer = setTimeout(async () => {
+        try {
+          const resp = await fetch(`/api/food-search/?q=${encodeURIComponent(q)}`);
+          const data = await resp.json();
+          renderResults(data);
+        } catch (e) { console.error(e); }
+      }, 300);
+    });
+  }
+})();
+</script>
+
+{% endblock %}
